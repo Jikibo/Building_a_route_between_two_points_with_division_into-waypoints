@@ -1,0 +1,142 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Маршрут Питер—Москва (100k точек)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Leaflet CSS/JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    html,body,#map { height:100%; margin:0; padding:0; }
+    .info-box { position:absolute; z-index:1000; top:10px; left:10px; background:white; padding:6px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.3); }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div class="info-box">Маршрут: Питер — Москва. Точек: 100k. Canvas rendering.</div>
+
+<script>
+  // Init map (как было)
+  const map = L.map('map').setView([58.5, 34], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  // FIXED CanvasLayer (совместимый с Leaflet)
+  const CanvasLayer = L.Layer.extend({
+    onAdd: function(map) {
+      this._map = map;
+      this._canvas = L.DomUtil.create('canvas', 'leaflet-canvas-layer');
+      // disable pointer events so clicks pass through to map
+      this._canvas.style.pointerEvents = 'none';
+      const size = this._map.getSize();
+      this._canvas.width = size.x;
+      this._canvas.height = size.y;
+      this._canvas.style.position = 'absolute';
+      // append to overlayPane (so it sits above tiles and polylines by order)
+      map.getPanes().overlayPane.appendChild(this._canvas);
+      this._ctx = this._canvas.getContext('2d');
+      map.on('move resize zoomend', this._reset, this);
+      this._reset();
+    },
+
+    onRemove: function(map) {
+      L.DomUtil.remove(this._canvas);
+      map.off('move resize zoomend', this._reset, this);
+    },
+
+    _reset: function() {
+      // update canvas size
+      const size = this._map.getSize();
+      this._canvas.width = size.x;
+      this._canvas.height = size.y;
+      // compute top-left layer point for current view
+      this._topLeft = this._map.latLngToLayerPoint(this._map.getBounds().getNorthWest());
+      // clear and redraw
+      this.redraw();
+    },
+
+    setPoints: function(latlngs) {
+      // latlngs: [{lat, lon}, ...]
+      this._points = latlngs;
+      this.redraw();
+    },
+
+    redraw: function() {
+      if (!this._ctx || !this._points) return;
+      const ctx = this._ctx;
+      ctx.clearRect(0,0,this._canvas.width, this._canvas.height);
+
+      // choose size based on zoom
+      const zoom = this._map.getZoom();
+      const size = (zoom >= 12 ? 2 : (zoom >= 10 ? 1.5 : 1)); // tweak as you like
+
+      ctx.fillStyle = 'rgba(255,0,0,0.6)';
+      // top-left layer point (used to offset layerPoint -> canvas coords)
+      const topLeft = this._topLeft || this._map.latLngToLayerPoint(this._map.getBounds().getNorthWest());
+
+      for (let i=0;i<this._points.length;i++) {
+        // IMPORTANT: use latLngToLayerPoint (coordinates relative to layer origin)
+        const layerPt = this._map.latLngToLayerPoint([this._points[i].lat, this._points[i].lon]);
+        const x = Math.round(layerPt.x - topLeft.x);
+        const y = Math.round(layerPt.y - topLeft.y);
+        // quick bounds check
+        if (x < -10 || y < -10 || x > this._canvas.width + 10 || y > this._canvas.height + 10) continue;
+        ctx.fillRect(x - Math.floor(size/2), y - Math.floor(size/2), Math.ceil(size), Math.ceil(size));
+      }
+    }
+  });
+
+  const canvasLayer = new CanvasLayer();
+  canvasLayer.addTo(map);
+
+  // --- Загрузка CSV и отрисовка (как раньше, с небольшими изменениями) ---
+  fetch('route_test_100k.csv')
+    .then(resp => {
+      if (!resp.ok) throw new Error("Не удалось загрузить CSV: " + resp.status);
+      return resp.text();
+    })
+    .then(text => {
+      const lines = text.trim().split('\n');
+      const header = lines[0].split(',');
+      const lat_i = header.indexOf('lat');
+      const lon_i = header.indexOf('lon');
+      if (lat_i < 0 || lon_i < 0) throw new Error("CSV должен содержать колонки lat и lon");
+      const points = [];
+      for (let i=1;i<lines.length;i++){
+        const parts = lines[i].split(',');
+        const lat = parseFloat(parts[lat_i]);
+        const lon = parseFloat(parts[lon_i]);
+        points.push({lat, lon});
+      }
+
+      // Полилиния — берем downsample для легкой линии (чтобы не перегружать DOM)
+      const polyCoords = [];
+      const step = Math.max(1, Math.floor(points.length / 2000));
+      for (let i=0;i<points.length;i+=step) polyCoords.push([points[i].lat, points[i].lon]);
+      const poly = L.polyline(polyCoords, {color:'blue', weight:3, opacity:0.8}).addTo(map);
+
+      // Canvas layer рисует все точки
+      canvasLayer.setPoints(points);
+
+      // увязываем видимость полилинии с zoom: при большом zoom прячем синюю линию
+      function updatePolylineVisibility() {
+        const z = map.getZoom();
+        if (z >= 12) {
+          if (map.hasLayer(poly)) map.removeLayer(poly);
+        } else {
+          if (!map.hasLayer(poly)) map.addLayer(poly);
+        }
+      }
+      map.on('zoomend', updatePolylineVisibility);
+      updatePolylineVisibility();
+
+      // стартовое view
+      map.fitBounds([[points[0].lat, points[0].lon],[points[points.length-1].lat, points[points.length-1].lon]]);
+    })
+    .catch(err => { console.error(err); alert("Ошибка при загрузке CSV: " + err.message); });
+</script>
+</body>
+</html>
