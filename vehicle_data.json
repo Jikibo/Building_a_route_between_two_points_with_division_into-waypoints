@@ -1,0 +1,24 @@
+{
+  "vehicle": {
+    "model": "Грузовой автомобиль",
+    "vehicle_mass_kg": 3500,
+    "cargo_mass_kg": 2000,
+    "total_mass_kg": 5500,
+    "max_speed_kmh": 90,
+    "fuel_consumption_base_l_per_100km": 12.0,
+    "fuel_tank_capacity_l": 200,
+    "engine_power_kw": 150
+  },
+  "simulation": {
+    "acceleration_kmh_per_sec": 5.0,
+    "deceleration_kmh_per_sec": 8.0,
+    "update_interval_ms": 100,
+    "time_multiplier": 1.0
+  },
+  "physics": {
+    "rolling_resistance_coefficient": 0.01,
+    "air_resistance_coefficient": 0.7,
+    "frontal_area_m2": 8.0,
+    "gravity_m_per_s2": 9.81
+  }
+}

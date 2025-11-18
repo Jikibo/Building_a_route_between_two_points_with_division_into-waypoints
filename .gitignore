@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# CSV files (generated routes)
+route_*.csv
+*.csv
+
+# DEM files (too large for git)
+*.tif
+*.tiff
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Documentation (optional, keep only essential)
+FUEL_CALCULATOR.md
+SIMULATION_GUIDE.md
+TZ_CHECKLIST.md
+OSRM_SETUP.md
+INSTALL.md
+WHATS_NEW.md
+SETUP.md
+CHECKLIST.md
+SUMMARY.md
+ARCHITECTURE.md
+QUICK_START.md
+REQUEST_FLOW.md
+REALTIME_SIMULATION.md
+FIXES_SUMMARY.md
+START_HERE.md
+
+# Test files
+test_*.py
+*_test.py
+
+# Old viewer
+route_viewer.html
